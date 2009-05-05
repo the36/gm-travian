@@ -100,39 +100,6 @@ function Units() {
     }
 }
 
-function checkIdleScouts(todo, units) {
-    var extra = units.getCount('Equites Legati') - 1;
-    if (extra > 0) {
-	todo.add(new ToDoListItem('use your ' + extra + ' extra scouts'));
-    }
-}
-
-function ToDoListItem(html) {
-    this.html = html;
-    this.render = function() {
-	return "<tr><td>" + html + "</td></tr>";
-    }
-}
-
-function ToDoList() {
-    this.list = [];
-    this.add = function(x) {
-	this.list = this.list.concat([x]);
-    }
-    this.render = function() {
-	var i, out = "<div class='f10 b'>To Do:</div><table width='100%' class='f10'>";
-	if (this.list.length == 0) {
-	    out += "<tr><td>&lt;EMPTY&gt;</td></tr>";
-	} else {
-	    for(i=0; i<this.list.length; i++) {
-		out += this.list[i].render();
-	    }
-	}
-	out += "</table>";
-	return out;
-    }
-}
-
 function timeAdd(d, hrs) {
     var out = new Date();
     out.setTime(d.getTime() + hrs * 60 * 60 * 1000);
@@ -155,6 +122,31 @@ function formatDate(d) {
     return out;
 }
 
+function parseResourceTarget(resTable) {
+    var imgs = resTable.getElementsByTagName('img'),
+	out = new Resources();
+    out.wood = parseInt(imgs[0].nextSibling.nodeValue);
+    out.clay = parseInt(imgs[1].nextSibling.nodeValue);
+    out.iron = parseInt(imgs[2].nextSibling.nodeValue);
+    out.wheat = parseInt(imgs[3].nextSibling.nodeValue);
+    return out;
+}
+
+function updateResourceWaitTimes(res, prod) {
+    var i, when, hrs, target,
+	spans = document.getElementsByTagName('span');
+    for(i=0; i<spans.length; i++) {
+	if (spans[i].getAttribute('class') == 'c'
+	    && spans[i].innerHTML == 'Too few resources') {
+	    target = parseResourceTarget(spans[i].parentNode);
+	    hrs = prod.waitTimeHours(res, target);
+	    when = timeAdd(new Date(), hrs);
+	    spans[i].innerHTML = '(Ready at ' + formatDate(when) + ')';
+	    spans[i].setAttribute('class','');
+	}
+    }
+}
+
 function insertMessageDiv(html) {
     var lmid2Div = document.getElementById('lmid2'),
 	anonDiv = lmid2Div.getElementsByTagName('div')[2],
@@ -169,11 +161,51 @@ function insertMessageDiv(html) {
     lbau1Div.appendChild(newDiv);
 }
 
+function previousTag(t) {
+    var n = t;
+    do n = n.previousSibling;
+    while (n && n.nodeType != 1);
+    return n;
+}
+
+function nextTag(t) {
+    var n = t;
+    do n = n.nextSibling;
+    while (n && n.nodeType != 1);
+    return n;
+}
+
+function popup(html) {
+    var popupDiv = document.getElementById('ce');
+    if (popupDiv == null) {
+	popupDiv = document.createElement('div');
+	popupDiv.id = 'ce';
+	document.getElementsByTagName('body')[0].appendChild(popupDiv);
+    }
+    popupDiv.innerHTML = '<div class="popup3">' + html + '</div><a href="#" onClick="Close(); return false;"><img src="img/un/a/x.gif" border="1" class="popup4" alt="Close"></a>';
+}
+
+function popupMenu() {
+    var menuHTML = '<div id="gmt-menu"/>' +
+	'<a id="gmt-menu-scouting" href="#">Scouting</a>' +
+	'</div>' +
+	'<div id="gmt-menu-pane">' +
+	'</div>';
+    popup(menuHTML);
+}
+
+function addMenuLink() {
+    var oldHTML, ltimeDiv = document.getElementById('ltime');
+    if (ltimeDiv == null) return;
+    oldHTML = ltimeDiv.innerHTML;
+    ltimeDiv.innerHTML = '<table><tr><td>' + oldHTML + '</td><td><a id="gmt-menu-link" href="#">[GMT]</a></td></tr></table>';
+    document.getElementById('gmt-menu-link').addEventListener('click', function () { popupMenu(); }, true);
+}
+
 var resources = new Resources(),
     production = new Production(),
     villageName = new VillageName(),
-    units = new Units(),
-    todo = new ToDoList();
+    units = new Units();
 
 function parseUpdates() {
     resources.refresh();
@@ -182,10 +214,6 @@ function parseUpdates() {
     units.refresh();
 }
 
-function calculateToDoList() {
-    checkIdleScouts(todo, units);
-}
-
+addMenuLink();
 parseUpdates();
-calculateToDoList();
-insertMessageDiv(todo.render());
+updateResourceWaitTimes(resources, production);
